@@ -149,6 +149,7 @@ class WsConnection(
                 val notificationWithSubscriptionId = notification.copy(subscriptionId = subscription.id)
                 notificationListener(subscription, notificationWithSubscriptionId)
                 since.set(notification.id)
+                stateChangeListener(subscriptionIds, ConnectionState.CONNECTED)
             }
         }
 
