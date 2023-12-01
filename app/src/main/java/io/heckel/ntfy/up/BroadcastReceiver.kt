@@ -34,13 +34,21 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
     private fun register(context: Context, intent: Intent) {
         val appId = intent.getStringExtra(EXTRA_APPLICATION) ?: return
         val connectorToken = intent.getStringExtra(EXTRA_TOKEN) ?: return
+        return register(context, appId, connectorToken)
+    }
+
+    fun register(context: Context, appId: String, connectorToken: String) {
         val app = context.applicationContext as Application
         val repository = app.repository
         val distributor = Distributor(app)
         Log.d(TAG, "REGISTER received for app $appId (connectorToken=$connectorToken)")
         if (!repository.getUnifiedPushEnabled()) {
             Log.w(TAG, "Refusing registration because 'EnableUP' is disabled")
-            distributor.sendRegistrationFailed(appId, connectorToken, "UnifiedPush is disabled in ntfy")
+            distributor.sendRegistrationFailed(
+                appId,
+                connectorToken,
+                "UnifiedPush is disabled in ntfy"
+            )
             return
         }
         if (appId.isBlank()) {
@@ -53,21 +61,34 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
             // See https://github.com/binwiederhier/ntfy/issues/230 for details.
 
             mutex.withLock {
-                val existingSubscription = repository.getSubscriptionByConnectorToken(connectorToken)
+                val existingSubscription =
+                    repository.getSubscriptionByConnectorToken(connectorToken)
                 if (existingSubscription != null) {
                     if (existingSubscription.upAppId == appId) {
-                        val endpoint = topicUrlUp(existingSubscription.baseUrl, existingSubscription.topic)
-                        Log.d(TAG, "Subscription with connectorToken $connectorToken exists. Sending endpoint $endpoint.")
+                        val endpoint =
+                            topicUrlUp(existingSubscription.baseUrl, existingSubscription.topic)
+                        Log.d(
+                            TAG,
+                            "Subscription with connectorToken $connectorToken exists. Sending endpoint $endpoint."
+                        )
                         distributor.sendEndpoint(appId, connectorToken, endpoint)
                     } else {
-                        Log.d(TAG, "Subscription with connectorToken $connectorToken exists for a different app. Refusing registration.")
-                        distributor.sendRegistrationFailed(appId, connectorToken, "Connector token already exists")
+                        Log.d(
+                            TAG,
+                            "Subscription with connectorToken $connectorToken exists for a different app. Refusing registration."
+                        )
+                        distributor.sendRegistrationFailed(
+                            appId,
+                            connectorToken,
+                            "Connector token already exists"
+                        )
                     }
                     return@launch
                 }
 
                 // Add subscription
-                val baseUrl = repository.getDefaultBaseUrl() ?: context.getString(R.string.app_base_url)
+                val baseUrl =
+                    repository.getDefaultBaseUrl() ?: context.getString(R.string.app_base_url)
                 val topic = UP_PREFIX + randomString(TOPIC_RANDOM_ID_LENGTH)
                 val endpoint = topicUrlUp(baseUrl, topic)
                 val subscription = Subscription(
@@ -87,9 +108,12 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
                     displayName = null,
                     totalCount = 0,
                     newCount = 0,
-                    lastActive = Date().time/1000
+                    lastActive = Date().time / 1000
                 )
-                Log.d(TAG, "Adding subscription with for app $appId (connectorToken $connectorToken): $subscription")
+                Log.d(
+                    TAG,
+                    "Adding subscription with for app $appId (connectorToken $connectorToken): $subscription"
+                )
                 try {
                     // Note, this may fail due to a SQL constraint exception, see https://github.com/binwiederhier/ntfy/issues/185
                     repository.addSubscription(subscription)
@@ -120,16 +144,28 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
             // See https://github.com/binwiederhier/ntfy/issues/230 for details.
 
             mutex.withLock {
-                val existingSubscription = repository.getSubscriptionByConnectorToken(connectorToken)
+                val existingSubscription =
+                    repository.getSubscriptionByConnectorToken(connectorToken)
                 if (existingSubscription == null) {
-                    Log.d(TAG, "Subscription with connectorToken $connectorToken does not exist. Ignoring.")
+                    Log.d(
+                        TAG,
+                        "Subscription with connectorToken $connectorToken does not exist. Ignoring."
+                    )
                     return@launch
                 }
 
                 // Remove subscription
-                Log.d(TAG, "Removing subscription ${existingSubscription.id} with connectorToken $connectorToken")
+                Log.d(
+                    TAG,
+                    "Removing subscription ${existingSubscription.id} with connectorToken $connectorToken"
+                )
                 repository.removeSubscription(existingSubscription.id)
-                existingSubscription.upAppId?.let { appId -> distributor.sendUnregistered(appId, connectorToken) }
+                existingSubscription.upAppId?.let { appId ->
+                    distributor.sendUnregistered(
+                        appId,
+                        connectorToken
+                    )
+                }
 
                 // Refresh (and maybe stop) foreground service
                 SubscriberServiceManager.refresh(context)

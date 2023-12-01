@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.*
 import io.heckel.ntfy.util.Log
 import io.heckel.ntfy.util.validUrl
+import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -33,6 +34,19 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
             .listFlow()
             .asLiveData()
             .combineWith(connectionStatesLiveData) { subscriptionsWithMetadata, _ ->
+                // the blank connectionState reruns this block,
+                // toSubscriptionList outputs latest connectionState
+                toSubscriptionList(subscriptionsWithMetadata.orEmpty())
+            }
+    }
+
+    fun getNewlyConnectedApp(): LiveData<List<Subscription>> {
+        return subscriptionDao
+            .listFlow()
+            .asLiveData()
+            .combineWith(connectionStatesLiveData) { subscriptionsWithMetadata, _ ->
+                // the blank connectionState reruns this block,
+                // toSubscriptionList outputs latest connectionState
                 toSubscriptionList(subscriptionsWithMetadata.orEmpty())
             }
     }
@@ -415,6 +429,7 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
                 autoDelete = s.autoDelete,
                 insistent = s.insistent,
                 lastNotificationId = s.lastNotificationId,
+                lastConnected = s.lastConnected,
                 icon = s.icon,
                 upAppId = s.upAppId,
                 upConnectorToken = s.upConnectorToken,
@@ -442,6 +457,7 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
             autoDelete = s.autoDelete,
             insistent = s.insistent,
             lastNotificationId = s.lastNotificationId,
+            lastConnected = s.lastConnected,
             icon = s.icon,
             upAppId = s.upAppId,
             upConnectorToken = s.upConnectorToken,
@@ -462,8 +478,14 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
                 if (newState == ConnectionState.NOT_APPLICABLE) {
                     connectionStates.remove(subscriptionId)
                 } else {
+                    if (newState == ConnectionState.CONNECTED) {// changed from not connected to connected
+
+                    }
                     connectionStates[subscriptionId] = newState
                 }
+            }
+            if (newState == ConnectionState.CONNECTED) {
+                subscriptionDao.updateLastConnected(subscriptionId, Date().time/1000)
             }
         }
         if (changed) {
