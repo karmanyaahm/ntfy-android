@@ -248,7 +248,7 @@ class SubscriberService : Service() {
     }
 
     private fun onStateChanged(subscriptionIds: Collection<Long>, state: ConnectionState) {
-        repository.updateState(subscriptionIds, state)
+        repository.updateState(this, subscriptionIds, state)
     }
 
     private fun onNotificationReceived(subscription: Subscription, notification: io.heckel.ntfy.db.Notification) {

@@ -6,6 +6,7 @@ import io.heckel.ntfy.msg.ApiService
 import io.heckel.ntfy.util.topicUrl
 import kotlinx.coroutines.*
 import okhttp3.Call
+import okhttp3.internal.wait
 import java.util.concurrent.atomic.AtomicBoolean
 
 class JsonConnection(
@@ -54,15 +55,28 @@ class JsonConnection(
                         stateChangeListener(subscriptionIds, ConnectionState.CONNECTING)
                     }
                 }
+                val connected = AtomicBoolean(false)
+                val connect = { ->
+                    connected.set(true)
+                }
 
                 // Call /json subscribe endpoint and loop until the call fails, is canceled,
                 // or the job or service are cancelled/stopped
                 try {
-                    call = api.subscribe(baseUrl, topicsStr, unifiedPushTopicsStr, since, user, notify, fail)
+                    call = api.subscribe(baseUrl, topicsStr, unifiedPushTopicsStr, since, user, notify, fail, connect)
                     while (!failed.get() && !call.isCanceled() && isActive && serviceActive()) {
-                        stateChangeListener(subscriptionIds, ConnectionState.CONNECTED)
-                        Log.d(TAG,"[$url] Connection is active (failed=$failed, callCanceled=${call.isCanceled()}, jobActive=$isActive, serviceStarted=${serviceActive()}")
-                        delay(CONNECTION_LOOP_DELAY_MILLIS) // Resumes immediately if job is cancelled
+                        // without this connected check there's a race condition the CONNECTED state is broadcast
+                        // but there is no response from the server, so the request is doomed to fail
+                        // very shortly, failed is set as it realizes the request is failing
+                        if (connected.get()) {
+                            stateChangeListener(subscriptionIds, ConnectionState.CONNECTED)
+                            Log.d(TAG,"[$url] Connection is active (failed=$failed, callCanceled=${call.isCanceled()}, jobActive=$isActive, serviceStarted=${serviceActive()}")
+                            delay(CONNECTION_LOOP_DELAY_MILLIS) // Resumes immediately if job is cancelled
+                        } else {
+                            // an unintentional consequence of this is it avoids having to wait 30seconds on a failed connected
+                            // things jump straight to retryMillis practically immediately when the connection never started in the first place
+                            delay(WAIT_TO_CONNECT_DELAY_MILLIS) // TODO this is probably a bad way of doing this
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "[$url] Connection failed: ${e.message}", e)
@@ -105,6 +119,7 @@ class JsonConnection(
 
     companion object {
         private const val TAG = "NtfySubscriberConn"
+        private const val WAIT_TO_CONNECT_DELAY_MILLIS = 100L
         private const val CONNECTION_LOOP_DELAY_MILLIS = 30_000L
         private const val RETRY_STEP_MILLIS = 5_000L
         private const val RETRY_MAX_MILLIS = 60_000L

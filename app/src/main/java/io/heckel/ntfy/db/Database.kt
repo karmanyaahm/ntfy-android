@@ -20,12 +20,12 @@ data class Subscription(
     @ColumnInfo(name = "autoDelete") val autoDelete: Long, // Seconds
     @ColumnInfo(name = "insistent") val insistent: Int, // Ring constantly for max priority notifications (-1 = use global, 0 = off, 1 = on)
     @ColumnInfo(name = "lastNotificationId") val lastNotificationId: String?, // Used for polling, with since=<id>
+    @ColumnInfo(name = "lastConnected") val lastConnected: Long = 0, // Unix timestamp, 0 for never connected
     @ColumnInfo(name = "icon") val icon: String?, // content://-URI (or later other identifier)
     @ColumnInfo(name = "upAppId") val upAppId: String?, // UnifiedPush application package name
     @ColumnInfo(name = "upConnectorToken") val upConnectorToken: String?, // UnifiedPush connector token
     @ColumnInfo(name = "displayName") val displayName: String?,
     @ColumnInfo(name = "dedicatedChannels") val dedicatedChannels: Boolean,
-    @ColumnInfo(name = "lastConnected") val lastConnected: Long = 0, // Unix timestamp, 0 for never connected
     // TODO should I just repuropose lastActive
     @Ignore val totalCount: Int = 0, // Total notifications
     @Ignore val newCount: Int = 0, // New notifications
@@ -42,6 +42,7 @@ data class Subscription(
         autoDelete: Long,
         insistent: Int,
         lastNotificationId: String,
+        lastConnected: Long,
         icon: String,
         upAppId: String,
         upConnectorToken: String,
@@ -58,12 +59,12 @@ data class Subscription(
                 autoDelete,
                 insistent,
                 lastNotificationId,
+                lastConnected,
                 icon,
                 upAppId,
                 upConnectorToken,
                 displayName,
                 dedicatedChannels,
-                lastConnected = 0,
                 totalCount = 0,
                 newCount = 0,
                 lastActive = 0,
@@ -200,7 +201,7 @@ data class LogEntry(
             this(0, timestamp, tag, level, message, exception)
 }
 
-@androidx.room.Database(entities = [Subscription::class, Notification::class, User::class, LogEntry::class], version = 13)
+@androidx.room.Database(entities = [Subscription::class, Notification::class, User::class, LogEntry::class], version = 14)
 @TypeConverters(Converters::class)
 abstract class Database : RoomDatabase() {
     abstract fun subscriptionDao(): SubscriptionDao

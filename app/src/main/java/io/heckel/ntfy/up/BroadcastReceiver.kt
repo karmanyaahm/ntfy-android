@@ -41,6 +41,7 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
         val app = context.applicationContext as Application
         val repository = app.repository
         val distributor = Distributor(app)
+
         Log.d(TAG, "REGISTER received for app $appId (connectorToken=$connectorToken)")
         if (!repository.getUnifiedPushEnabled()) {
             Log.w(TAG, "Refusing registration because 'EnableUP' is disabled")
@@ -117,7 +118,7 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
                 try {
                     // Note, this may fail due to a SQL constraint exception, see https://github.com/binwiederhier/ntfy/issues/185
                     repository.addSubscription(subscription)
-                    distributor.sendEndpoint(appId, connectorToken, endpoint)
+// only send new endpoint after successfully connected, avoiding race condition of server trying to send messages before client subscribes
 
                     // Refresh (and maybe start) foreground service
                     SubscriberServiceManager.refresh(app)
@@ -132,6 +133,7 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
             }
         }
     }
+
 
     private fun unregister(context: Context, intent: Intent) {
         val connectorToken = intent.getStringExtra(EXTRA_TOKEN) ?: return
@@ -179,5 +181,35 @@ class BroadcastReceiver : android.content.BroadcastReceiver() {
         private const val TOPIC_RANDOM_ID_LENGTH = 12
 
         val mutex = Mutex() // https://github.com/binwiederhier/ntfy/issues/230
+
+        public fun reRegister(context: Context, id: Long) {
+            // TODO move this to a reasonalbe location
+
+            val app = context.applicationContext as Application
+            val repository = app.repository
+            val distributor = Distributor(app)
+            GlobalScope.launch(Dispatchers.IO) {
+
+                // We're doing all of this inside a critical section, because of possible races.
+                // See https://github.com/binwiederhier/ntfy/issues/230 for details.
+
+                mutex.withLock {
+                    val existingSubscription = repository.getSubscription(id) ?: return@launch;
+                    val appId = existingSubscription.upAppId ?: return@launch;
+                    val connectorToken = existingSubscription.upConnectorToken ?: return@launch;
+
+                    val endpoint =
+                        topicUrlUp(existingSubscription.baseUrl, existingSubscription.topic)
+                    Log.d(
+                        TAG,
+                        "Subscription with connectorToken $connectorToken exists. Re-sending endpoint $endpoint."
+                    )
+                    distributor.sendEndpoint(appId, connectorToken, endpoint)
+
+                    return@launch
+
+                }
+            }
+        }
     }
 }

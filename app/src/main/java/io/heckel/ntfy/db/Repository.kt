@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.annotation.WorkerThread
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.*
+import io.heckel.ntfy.up.BroadcastReceiver
 import io.heckel.ntfy.util.Log
 import io.heckel.ntfy.util.validUrl
 import java.util.Date
@@ -130,7 +131,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
         return notificationDao.get(notificationId)
     }
 
-    fun onlyNewNotifications(subscriptionId: Long, notifications: List<Notification>): List<Notification> {
+    fun onlyNewNotifications(
+        subscriptionId: Long,
+        notifications: List<Notification>
+    ): List<Notification> {
         val existingIds = notificationDao.listIds(subscriptionId)
         return notifications.filterNot { existingIds.contains(it.id) }
     }
@@ -283,7 +287,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun getDarkMode(): Int {
-        return sharedPrefs.getInt(SHARED_PREFS_DARK_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        return sharedPrefs.getInt(
+            SHARED_PREFS_DARK_MODE,
+            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        )
     }
 
     fun setConnectionProtocol(connectionProtocol: String) {
@@ -293,7 +300,8 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun getConnectionProtocol(): String {
-        return sharedPrefs.getString(SHARED_PREFS_CONNECTION_PROTOCOL, null) ?: CONNECTION_PROTOCOL_JSONHTTP
+        return sharedPrefs.getString(SHARED_PREFS_CONNECTION_PROTOCOL, null)
+            ?: CONNECTION_PROTOCOL_JSONHTTP
     }
 
     fun getBroadcastEnabled(): Boolean {
@@ -317,7 +325,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun getInsistentMaxPriorityEnabled(): Boolean {
-        return sharedPrefs.getBoolean(SHARED_PREFS_INSISTENT_MAX_PRIORITY_ENABLED, false) // Disabled by default
+        return sharedPrefs.getBoolean(
+            SHARED_PREFS_INSISTENT_MAX_PRIORITY_ENABLED,
+            false
+        ) // Disabled by default
     }
 
     fun setInsistentMaxPriorityEnabled(enabled: Boolean) {
@@ -327,7 +338,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun getRecordLogs(): Boolean {
-        return sharedPrefs.getBoolean(SHARED_PREFS_RECORD_LOGS_ENABLED, false) // Disabled by default
+        return sharedPrefs.getBoolean(
+            SHARED_PREFS_RECORD_LOGS_ENABLED,
+            false
+        ) // Disabled by default
     }
 
     fun setRecordLogsEnabled(enabled: Boolean) {
@@ -337,7 +351,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun getBatteryOptimizationsRemindTime(): Long {
-        return sharedPrefs.getLong(SHARED_PREFS_BATTERY_OPTIMIZATIONS_REMIND_TIME, BATTERY_OPTIMIZATIONS_REMIND_TIME_ALWAYS)
+        return sharedPrefs.getLong(
+            SHARED_PREFS_BATTERY_OPTIMIZATIONS_REMIND_TIME,
+            BATTERY_OPTIMIZATIONS_REMIND_TIME_ALWAYS
+        )
     }
 
     fun setBatteryOptimizationsRemindTime(timeMillis: Long) {
@@ -357,8 +374,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun getDefaultBaseUrl(): String? {
-        return sharedPrefs.getString(SHARED_PREFS_DEFAULT_BASE_URL, null) ?:
-            sharedPrefs.getString(SHARED_PREFS_UNIFIED_PUSH_BASE_URL, null) // Fall back to UP URL, removed when default is set!
+        return sharedPrefs.getString(SHARED_PREFS_DEFAULT_BASE_URL, null) ?: sharedPrefs.getString(
+            SHARED_PREFS_UNIFIED_PUSH_BASE_URL,
+            null
+        ) // Fall back to UP URL, removed when default is set!
     }
 
     fun setDefaultBaseUrl(baseUrl: String) {
@@ -378,7 +397,7 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
 
     fun isGlobalMuted(): Boolean {
         val mutedUntil = getGlobalMutedUntil()
-        return mutedUntil == 1L || (mutedUntil > 1L && mutedUntil > System.currentTimeMillis()/1000)
+        return mutedUntil == 1L || (mutedUntil > 1L && mutedUntil > System.currentTimeMillis() / 1000)
     }
 
     fun getGlobalMutedUntil(): Long {
@@ -393,7 +412,7 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
 
     fun checkGlobalMutedUntil(): Boolean {
         val mutedUntil = sharedPrefs.getLong(SHARED_PREFS_MUTED_UNTIL_TIMESTAMP, 0L)
-        val expired = mutedUntil > 1L && System.currentTimeMillis()/1000 > mutedUntil
+        val expired = mutedUntil > 1L && System.currentTimeMillis() / 1000 > mutedUntil
         if (expired) {
             sharedPrefs.edit()
                 .putLong(SHARED_PREFS_MUTED_UNTIL_TIMESTAMP, 0L)
@@ -409,7 +428,8 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
     }
 
     fun addLastShareTopic(topic: String) {
-        val topics = (getLastShareTopics().filterNot { it == topic } + topic).takeLast(LAST_TOPICS_COUNT)
+        val topics =
+            (getLastShareTopics().filterNot { it == topic } + topic).takeLast(LAST_TOPICS_COUNT)
         sharedPrefs.edit()
             .putString(SHARED_PREFS_LAST_TOPICS, topics.joinToString(separator = "\n"))
             .apply()
@@ -417,7 +437,8 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
 
     private fun toSubscriptionList(list: List<SubscriptionWithMetadata>): List<Subscription> {
         return list.map { s ->
-            val connectionState = connectionStates.getOrElse(s.id) { ConnectionState.NOT_APPLICABLE }
+            val connectionState =
+                connectionStates.getOrElse(s.id) { ConnectionState.NOT_APPLICABLE }
             Subscription(
                 id = s.id,
                 baseUrl = s.baseUrl,
@@ -469,23 +490,32 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
         )
     }
 
-    fun updateState(subscriptionIds: Collection<Long>, newState: ConnectionState) {
+    fun updateState(
+        context: Context,
+        subscriptionIds: Collection<Long>,
+        newState: ConnectionState
+    ) {
         var changed = false
         subscriptionIds.forEach { subscriptionId ->
-            val state = connectionStates.getOrElse(subscriptionId) { ConnectionState.NOT_APPLICABLE }
+            val state =
+                connectionStates.getOrElse(subscriptionId) { ConnectionState.NOT_APPLICABLE }
             if (state !== newState) {
                 changed = true
+                Log.d(TAG, "my subscription $subscriptionId - $state - $newState")
                 if (newState == ConnectionState.NOT_APPLICABLE) {
                     connectionStates.remove(subscriptionId)
                 } else {
-                    if (newState == ConnectionState.CONNECTED) {// changed from not connected to connected
-
+                    val lastCon = subscriptionDao.get(subscriptionId)?.lastConnected ?: 0
+                    val now = Date().time / 1000
+                    if (newState == ConnectionState.CONNECTED && lastCon < now - 60) {// changed from not connected to connected
+                        // TODO move this whole thing somewhere better
+                        BroadcastReceiver.reRegister(context, subscriptionId);
                     }
                     connectionStates[subscriptionId] = newState
                 }
             }
             if (newState == ConnectionState.CONNECTED) {
-                subscriptionDao.updateLastConnected(subscriptionId, Date().time/1000)
+                subscriptionDao.updateLastConnected(subscriptionId, Date().time / 1000)
             }
         }
         if (changed) {
@@ -513,8 +543,10 @@ class Repository(private val sharedPrefs: SharedPreferences, private val databas
         const val SHARED_PREFS_INSISTENT_MAX_PRIORITY_ENABLED = "InsistentMaxPriority"
         const val SHARED_PREFS_RECORD_LOGS_ENABLED = "RecordLogs"
         const val SHARED_PREFS_BATTERY_OPTIMIZATIONS_REMIND_TIME = "BatteryOptimizationsRemindTime"
-        const val SHARED_PREFS_WEBSOCKET_REMIND_TIME = "JsonStreamRemindTime" // "Use WebSocket" banner (used to be JSON stream deprecation banner)
-        const val SHARED_PREFS_UNIFIED_PUSH_BASE_URL = "UnifiedPushBaseURL" // Legacy key required for migration to DefaultBaseURL
+        const val SHARED_PREFS_WEBSOCKET_REMIND_TIME =
+            "JsonStreamRemindTime" // "Use WebSocket" banner (used to be JSON stream deprecation banner)
+        const val SHARED_PREFS_UNIFIED_PUSH_BASE_URL =
+            "UnifiedPushBaseURL" // Legacy key required for migration to DefaultBaseURL
         const val SHARED_PREFS_DEFAULT_BASE_URL = "DefaultBaseURL"
         const val SHARED_PREFS_LAST_TOPICS = "LastTopics"
 

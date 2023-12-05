@@ -112,7 +112,8 @@ class ApiService {
         since: String?,
         user: User?,
         notify: (topic: String, Notification) -> Unit,
-        fail: (Exception) -> Unit
+        fail: (Exception) -> Unit,
+        connect: () -> Unit
     ): Call {
         val sinceVal = since ?: "all"
         val url = topicUrlJson(baseUrl, topics, sinceVal)
@@ -125,6 +126,7 @@ class ApiService {
                     if (!response.isSuccessful) {
                         throw Exception("Unexpected response ${response.code} when subscribing to topic $url")
                     }
+                    connect()
                     val source = response.body?.source() ?: throw Exception("Unexpected response for $url: body is empty")
                     while (!source.exhausted()) {
                         val line = source.readUtf8Line() ?: throw Exception("Unexpected response for $url: line is null")
